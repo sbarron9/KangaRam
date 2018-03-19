@@ -1,0 +1,1237 @@
+
+<!DOCTYPE HTML>
+<html>
+<head>
+
+	<script src="http://code.jquery.com/jquery-3.1.1.min.js"></script>
+
+	<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+	<script type="text/javascript">
+
+	var weightDisplayed = true;
+	var sampleStored = false;
+
+	var galootPopulationArray = [];
+	var sampleWeightArray = [];
+	var sampleProportionArray = [];
+	var samplePercentageWeightArray = [];
+	var samplePercentageProportionArray = [];
+	var trace;
+	var data;
+	var maxProportion;
+	var maxWeight;
+	var minProportion;
+	var minWeight;
+	var standardDeviationWeight;
+	var standardDeviationProportion;
+	var meanWeight;
+	var meanProportion;
+	var xAxisWeight = [];
+	var xAxisProportion = [0,1];
+
+	var distributionWeightArray = [];
+	var distributionProportionArray = [];
+	var distributionPercentageWeightArray = [];
+	var distributionPercentageProportionArray = [];
+
+	var distributionWeightArrayNarrow = [];
+	var distributionProportionArrayNarrow = [];
+	var distributionPercentageWeightArrayNarrow = [];
+	var distributionPercentageProportionArrayNarrow = [];
+
+	var empericalWeightArray = [];
+	var empericalProportionArray = [];
+
+	var maxYWeight = 20;
+	var maxYProportion = 20;
+	var maxYNWeight = 20;
+	var maxYNProportion = 20;
+
+	var mySampleSize = 40;
+
+	for(var i = 0; i <= 28; i++){
+		xAxisWeight[i] = i;
+	}
+
+	var xAxisProportionDistribution = [];
+	for(var i = 0; i <= 100; i++) {
+		xAxisProportionDistribution[i] = i/100;
+	}
+
+	var xAxisWeightDistribution = [];
+	for(var i = 0; i <= 27; i++) {
+		xAxisWeightDistribution[i] = i + 2;
+	}
+
+	//.10 - .30
+	var xAxisProportionDistributionNarrow = [];
+	for(var i = 0; i <= 20; i++) {
+		xAxisProportionDistributionNarrow[i] = .1 + (i/100) ;
+	}
+
+	// 12 - 14
+	var xAxisWeightDistributionNarrow = [];
+	for(var i = 0; i <= 20; i++) {
+		xAxisWeightDistributionNarrow[i] = 12 + i/10;
+	}
+
+	var rowLocation = 1;
+
+	function csvToArray (csv) {
+		rows  = csv.split("\n");
+		return rows.map(function (row) {
+			return row.split(",");
+		});
+	};
+
+	Array.prototype.stanDeviate = function(){
+   	var i,j,total = 0, mean = 0, diffSqredArr = [];
+   	for(i=0;i<this.length;i+=1){
+       total+=this[i];
+   	}
+   	mean = total/this.length;
+   	for(j=0;j<this.length;j+=1){
+       diffSqredArr.push(Math.pow((this[j]-mean),2));
+   	}
+   	return (Math.sqrt(diffSqredArr.reduce(function(firstEl, nextEl){
+            return firstEl + nextEl;
+          })/this.length));
+		};
+
+		function arrayMin(arr) {
+  		var len = arr.length, min = Infinity;
+  		while (len--) {
+    		if (arr[len] < min) {
+      		min = arr[len];
+    		}
+  		}
+  		return min;
+		};
+
+		function arrayMax(arr) {
+  		var len = arr.length, max = -Infinity;
+  		while (len--) {
+    		if (arr[len] > max) {
+      		max = arr[len];
+    		}
+  		}
+  		return max;
+		};
+
+	function arrayMean(arr) {
+		var total = 0;
+		for(var i = 0; i < arr.length; i++) {
+    	total += arr[i];
+		}
+		return total / arr.length;
+	};
+
+	function round(value, decimals) {
+		var returnNumber = Number(Math.round(value+'e'+decimals)+'e-'+decimals)
+  	return returnNumber;
+	};
+
+	function roundForDisplay(value, decimals){
+		var returnNumber = ''+Number(Math.round(value+'e'+decimals)+'e-'+decimals)
+		var returnNumberStart = '' + returnNumber;
+		var returnNumberEnd = '';
+		//if (your_string.indexOf('hello') > -1)
+		if(returnNumber.indexOf('.') > -1){
+			var returnNumberChunks = returnNumber.split('.');
+			returnNumberStart = returnNumberChunks[0];
+			returnNumberEnd = returnNumberChunks[1];
+		}
+
+		while(returnNumberEnd.length < decimals){
+			returnNumberEnd+= '0';
+		}
+
+  	return returnNumberStart + '.' + returnNumberEnd;
+	}
+
+	function setSummarySampleSize(x){
+		var elemSumSize = document.getElementById("sampleSummarySize");
+		elemSumSize.innerHTML = "<i>Sample Size (n): " + x + "</i>";
+	};
+
+	function setSummaryTable(){
+
+		if(weightDisplayed){
+			$("#meanTitle").text("Mean");
+			$("#variableSampled").text("Weight");
+			if(isNaN(maxWeight))
+			{
+				$("#tableMax").text("0.00 lbs");
+			}
+			else{
+				$("#tableMax").text(roundForDisplay(maxWeight,2) + " lbs");
+			}
+
+			if(isNaN(minWeight))
+			{
+				$("#tableMin").text("0.00 lbs");
+			}
+			else{
+				$("#tableMin").text(roundForDisplay(minWeight,2) + " lbs");
+			}
+
+			if(isNaN(standardDeviationWeight))
+			{
+				$("#tableSD").text("0.00 lbs");
+			}
+			else{
+				$("#tableSD").text(roundForDisplay(standardDeviationWeight,2) + " lbs");
+			}
+
+			if(isNaN(meanWeight))
+			{
+				$("#tableMean").text("0.00 lbs");
+			}
+			else{
+				$("#tableMean").text(roundForDisplay(meanWeight,2) + " lbs");
+			}
+
+		}
+		else {
+			$("#meanTitle").text("Proportion");
+			$("#variableSampled").text("Cares for Offspring");
+			if(isNaN(maxProportion))
+			{
+				$("#tableMax").text("0.00 or 0%");
+			}
+			else{
+				$("#tableMax").text(roundForDisplay(maxProportion,2) + ' or ' + (Math.round((round(maxProportion,2) * 100))) + "%");
+			}
+
+			//roundForDisplay(meanProportion,2) + " or " + roundForDisplay((round(meanProportion,2) * 100), 0) + "%";
+
+			if(isNaN(minProportion))
+			{
+				$("#tableMin").text("0.00 or 0%");
+			}
+			else{
+				$("#tableMin").text(roundForDisplay(minProportion,2) + ' or ' + Math.round((round(minProportion,2) * 100)) + "%");
+			}
+
+			if(isNaN(standardDeviationProportion))
+			{
+				$("#tableSD").text("0.00 or 0%");
+			}
+			else{
+				$("#tableSD").text(roundForDisplay(standardDeviationProportion,2) + ' or ' + Math.round((round(standardDeviationProportion,2) * 100)) + "%");
+			}
+
+			if(isNaN(meanProportion))
+			{
+				$("#tableMean").text("0.00 or 0%");
+			}
+			else{
+				$("#tableMean").text(roundForDisplay(meanProportion,2) + ' or ' + Math.round((round(meanProportion,2) * 100)) + "%" );
+			}
+
+		}
+
+	}
+
+	function getNewSample (sampleSize) {
+		sampleWeightArray = [];
+		samplePercentageWeightArray = [];
+
+		for(var i = 0; i <= 28; i++){
+			samplePercentageWeightArray[i] = 0;
+		}
+		for (var i = 0; i < sampleSize; i++) {
+			var sampleNumber = Math.floor(Math.random() * galootPopulationArray.length)
+			sampleWeightArray.push(parseFloat(galootPopulationArray[sampleNumber][0]));
+			samplePercentageWeightArray[Math.round(galootPopulationArray[sampleNumber][0])] = samplePercentageWeightArray[Math.round(galootPopulationArray[sampleNumber][0])] + round(((1/sampleSize) * 100),2);
+		}
+
+		sampleProportionArray = [];
+		samplePercentageProportionArray = [];
+		for(var i = 0; i <= 1; i++){
+			samplePercentageProportionArray[i] = 0;
+		}
+		for (var i = 0; i < sampleSize; i++) {
+			var sampleNumber = Math.floor(Math.random() * galootPopulationArray.length)
+			sampleProportionArray.push(parseInt(galootPopulationArray[sampleNumber][1]));
+			samplePercentageProportionArray[Math.round(galootPopulationArray[sampleNumber][1])] = samplePercentageProportionArray[Math.round(galootPopulationArray[sampleNumber][1])] + round(((1/sampleSize) * 100),2);
+
+		}
+
+	  maxProportion = arrayMax(sampleProportionArray);
+		maxWeight = arrayMax(sampleWeightArray);
+
+		minProportion = arrayMin(sampleProportionArray);
+		minWeight = arrayMin(sampleWeightArray);
+
+		standardDeviationWeight = sampleWeightArray.stanDeviate();
+		standardDeviationProportion = sampleProportionArray.stanDeviate();
+
+		meanWeight = arrayMean(sampleWeightArray);
+		meanProportion = arrayMean(sampleProportionArray);
+
+		setSummaryTable();
+
+	};
+
+		function createNewSampleGraphs(){
+
+			trace = {
+				x: xAxisWeight,
+				y: samplePercentageWeightArray,
+				type: 'bar',
+				marker: {
+					color: '#FF0000'}
+				};
+
+			data = [trace];
+
+			Plotly.newPlot('weightPercentage', data , {
+				title:'Current Galoot Sample',
+				xaxis: {
+						title: 'Weight (In Pounds)',
+						range: [0,28],
+						autotick: false,
+						ticks: 'outside',
+						tick0: 0,
+						dtick: 2,
+						ticklen: 8,
+						tickwidth: 4,
+						tickcolor: '#000'},
+				yaxis:{
+						title:'Relative Frequency (Percent)',
+						range: [0,16],
+						ticksuffix: '%',
+						autotick: false,
+						ticks: '',
+						tick0: 0,
+						dtick: 2,
+						ticklen: 8,
+						tickwidth: 0,
+						tickcolor: '#000'},
+				font: {
+						size: 16,
+						family: 'Roboto Slab, serif',
+						color: '#3B317D'}
+			});
+
+			trace2 = {
+				x: xAxisProportion,
+				y: samplePercentageProportionArray,
+				type: 'bar',
+				marker: {
+					color: '#FF0000'}
+			};
+//100% max
+			data2 = [trace2];
+			Plotly.newPlot('proportionPercentage', data2 ,{
+				title:'Current Galoot Sample',
+				xaxis: {
+						title: 'Cares For Offsprings',
+						range: [-1,2],
+						autotick: false,
+						ticks: 'outside',
+						tick0: 0,
+						dtick: 1,
+						ticklen: 8,
+						tickwidth: 4,
+						tickcolor: '#000'},
+				yaxis:{
+						title:'Relative Frequency (Percent)',
+						range: [0,100],
+						ticksuffix: '%',
+						autotick: false,
+						ticks: '',
+						tick0: 0,
+						dtick: 10,
+						ticklen: 8,
+						tickwidth: 0,
+						tickcolor: '#000'},
+				font: {
+						size: 16,
+						family: 'Roboto Slab, serif',
+						color: '#3B317D'}
+				});
+		};
+
+		function createNewSamplingDistributionGraphs(){
+
+			trace3 = {
+					x: xAxisWeightDistribution,
+					y: distributionPercentageWeightArray,
+					type: 'bar',
+					marker: {
+						color: '#0000FF'}
+			};
+
+			data3 = [trace3];
+
+			Plotly.newPlot('weightPercentageTotal', data3 ,{
+				//Empirical Sampling Distribution for x̄
+				title:'Empirical Sampling Distribution for x̄',
+				xaxis: {
+					title: 'Weight (In Pounds)',
+					range: [2,29],
+					autotick: true,
+					ticks: 'outside',
+					tick0: 0,
+					dtick: 2,
+					ticklen: 8,
+					tickwidth: 4,
+					tickcolor: '#000'},
+				yaxis:{
+					title:'',
+					range: [0,maxYWeight],
+					autotick: true,
+					ticks: '',
+					tick0: 0,
+					dtick: 5,
+					ticklen: 8,
+					tickwidth: 4,
+					tickcolor: '#000'},
+				font: {
+					size: 16,
+					family: 'Roboto Slab, serif',
+					color: '#3B317D'}
+			});
+
+
+			trace4 = {
+				x: xAxisProportionDistribution,
+				y: distributionPercentageProportionArray,
+				type: 'bar',
+				marker: {
+					color: '#0000FF'}
+			};
+//100% max
+			data4 = [trace4];
+
+			Plotly.newPlot('proportionPercentageTotal', data4 ,{
+				//Empirical Sampling Distribution for p̂
+				title:'Empirical Sampling Distribution for p̂',
+				xaxis: {
+					title: 'Proportion Caring For Offspring',
+					range: [0,1],
+					tickformat: '.1f',
+					autotick: true,
+					ticks: 'outside',
+					tick0: 0,
+					dtick: .2,
+					ticklen: 8,
+					tickwidth: 4,
+					tickcolor: '#000'},
+				yaxis:{
+					title:'',
+					range: [0,maxYProportion],
+					autotick: true,
+					ticks: '',
+					tick0: 0,
+					dtick: 5,
+					ticklen: 8,
+					tickwidth: 4,
+					tickcolor: '#000'},
+				font: {
+					size: 16,
+					family: 'Roboto Slab, serif',
+					color: '#3B317D'}
+			});
+
+			trace5 = {
+				x: xAxisWeightDistributionNarrow,
+				y: distributionPercentageWeightArrayNarrow,
+				type: 'bar',
+				marker: {
+					color: '#0000FF'}
+			};
+
+			data5 = [trace5];
+// 100% max
+
+			Plotly.newPlot('weightPercentageNarrowed', data5 ,{
+				title:'Zoomed In Empirical Sampling Distribution for x̄',
+				xaxis: {
+					title: 'Weight (In Pounds)',
+					range: [12,14],
+					tickformat: '.1f',
+					autotick: true,
+					ticks: 'outside',
+					tick0: 0,
+					dtick: .2,
+					ticklen: 8,
+					tickwidth: 4,
+					tickcolor: '#000'},
+				yaxis:{
+					title:'',
+					autotick: true,
+					range: [0,maxYNWeight],
+					ticks: '',
+					tick0: 0,
+					dtick: 5,
+					ticklen: 8,
+					tickwidth: 4,
+					tickcolor: '#000'},
+				font: {
+					size: 16,
+					family: 'Roboto Slab, serif',
+					color: '#3B317D'}
+			});
+
+
+			trace6 = {
+				x: xAxisProportionDistributionNarrow,
+				y: distributionPercentageProportionArrayNarrow,
+				type: 'bar',
+				marker: {
+					color: '#0000FF'}
+			};
+
+			data6 = [trace6];
+
+			Plotly.newPlot('proportionPercentageNarrowed', data6 ,{
+				title:'Zoomed In Empirical Sampling Distribution for p̂',
+				xaxis: {
+					title: 'Proportion Caring For Offspring',
+					range: [0.1,.3],
+					tickformat: '.2f',
+					autotick: true,
+					ticks: 'outside',
+					tick0: 0,
+					dtick: 2,
+					ticklen: 8,
+					tickwidth: 4},
+				yaxis:{
+					title:'',
+					autotick: true,
+					range: [0,maxYNProportion],
+					ticks: 'outside',
+					tick0: 0,
+					dtick: 5,
+					ticklen: 8,
+					tickwidth: 4},
+				font: {
+					size: 16,
+					family: 'Roboto Slab, serif',
+					color: '#3B317D'}
+			});
+
+		};
+
+		function updateSampleGraph(){
+
+		};
+
+		function updateSamplingDistributionGraphs(){
+
+		};
+
+	$(document).ready(function() {
+    $.get('GalootPopulation.csv', function(data) {
+        // Here you can do whatever you want with the data
+        //$(data).find('option').each(function() {
+        //   alert($(this).text());
+				galootPopulationArray = csvToArray(data);
+
+				//getNewSample(mySampleSize);
+
+				createNewSampleGraphs();
+
+				createNewSamplingDistributionGraphs();
+
+				setSummarySampleSize(mySampleSize);
+
+    });
+
+	});
+
+
+		var drawASample = function() {
+
+			var elemError = document.getElementById("sampleError");
+			elemError.innerHTML = "&nbsp;";
+
+			sampleStored = false;
+
+			getNewSample(mySampleSize);
+
+			Plotly.restyle('weightPercentage', 'y', [samplePercentageWeightArray]);
+			Plotly.restyle('proportionPercentage', 'y', [samplePercentageProportionArray]);
+		}
+
+		window.onload = function() {
+			(document.getElementById("drawSample")).onclick = drawASample;
+			(document.getElementById("storeSample")).onclick = storeASample;
+		};
+
+
+		function refactorDistributionPercentage(arrayVal) {
+			var percentageVal = [];
+			for(var i = 0; i < arrayVal.length; i++){
+				if(isNaN(percentageVal[arrayVal[i]])){
+					percentageVal[arrayVal[i]*10] = 0;
+				}
+				percentageVal[arrayVal[i]*10] = percentageVal[arrayVal[i]*10] + round(((1/arrayVal.length) * 100),2);
+			}
+		  return percentageVal; //percentageVal;
+
+			/*
+
+			samplePercentageWeightArray[Math.round(galootPopulationArray[sampleNumber][0])] = samplePercentageWeightArray[Math.round(galootPopulationArray[sampleNumber][0])] + round(((1/sampleSize) * 100),2);
+
+			*/
+		};
+
+		var countOccurence = function(x, myArray) {
+			return myArray.filter(function(y){
+				return x === y;
+			}).length;
+		}
+
+		var removeDuplicates = function(myArray){
+			return Array.from(new Set(myArray));
+		}
+
+		var transformArray = function(myArray) {
+			var noDups  = removeDuplicates(myArray);
+			var percentageArray = noDups.map(function(x){
+				return countOccurence(x, myArray);
+			});
+			return {x: noDups, y: percentageArray};
+		}
+
+		var storeASample = function() {
+			if ((sampleWeightArray.length != 0 && sampleProportionArray.length != 0) && !sampleStored) {
+
+				var elemError = document.getElementById("sampleError");
+				elemError.innerHTML = "&nbsp;";
+
+				var elemSize = document.getElementById("distributionSummarySize");
+
+				elemSize.innerHTML = rowLocation + (rowLocation == 1 ? " Repetition" : " Repetitions");
+
+
+
+				sampleStored = true;
+
+				distributionWeightArray[distributionWeightArray.length] = Math.round(meanWeight);
+				distributionProportionArray[distributionProportionArray.length] = round(meanProportion,1);
+				distributionWeightArrayNarrow[distributionWeightArrayNarrow.length] = round(meanWeight,1);
+				distributionProportionArrayNarrow[distributionProportionArrayNarrow.length] = round(meanProportion,2);
+
+				xAxisWeightDistribution = transformArray(distributionWeightArray).x;
+				xAxisProportionDistribution = transformArray(distributionProportionArray).x;
+				xAxisWeightDistributionNarrow = transformArray(distributionWeightArrayNarrow).x;
+				xAxisProportionDistributionNarrow = transformArray(distributionProportionArrayNarrow).x;
+
+				distributionPercentageWeightArray = transformArray(distributionWeightArray).y;
+				distributionPercentageProportionArray = transformArray(distributionProportionArray).y;
+				distributionPercentageWeightArrayNarrow = transformArray(distributionWeightArrayNarrow).y;
+				distributionPercentageProportionArrayNarrow = transformArray(distributionProportionArrayNarrow).y;
+
+				if (arrayMax(distributionPercentageWeightArray) > maxYWeight){
+					maxYWeight = arrayMax(distributionPercentageWeightArray);
+				}
+
+				if (arrayMax(distributionPercentageProportionArray) > maxYProportion){
+					maxYProportion = arrayMax(distributionPercentageProportionArray);
+				}
+
+				if (arrayMax(distributionPercentageWeightArrayNarrow) > maxYNWeight){
+					maxYNWeight = arrayMax(distributionPercentageWeightArrayNarrow);
+				}
+
+				if (arrayMax(distributionPercentageProportionArrayNarrow) > maxYNProportion){
+					maxYNProportion = arrayMax(distributionPercentageProportionArrayNarrow);
+				}
+
+
+				redrawSampleGraphs();
+
+				storeToTable();
+
+			}
+
+			else { // sample hasn't been drawn because there isn't a sample available.
+			var elemError = document.getElementById("sampleError");
+			if(!sampleStored)
+			{elemError.textContent = "Please draw a sample before attempting to store a sample.";}
+			else {
+				elemError.textContent = "This sample has already been stored.";
+			}
+
+			}
+
+		}
+
+		function showAllGraphs(){
+			$("#weightPercentageNarrowed").css("display", "");
+			$("#weightPercentageTotal").css("display", "");
+			$("#proportionPercentageNarrowed").css("display", "");
+			$("#proportionPercentageTotal").css("display", "");
+
+			$("#weightPercentage").css("display", "");
+			$("#proportionPercentage").css("display", "");
+		}
+
+		function redrawEmpericalTable(){
+			for(var i = 1; i < rowLocation; i++){
+				var itemID = '#cell' + i;
+				$(itemID).html(weightDisplayed ? empericalWeightArray[i-1] : empericalProportionArray[i-1]);
+			}
+		}
+
+		function switchWeight(){
+			weightDisplayed = true;
+			$("#weightPercentageNarrowed").css("display", "");
+			$("#weightPercentageTotal").css("display", "");
+			$("#proportionPercentageNarrowed").css("display", "none");
+			$("#proportionPercentageTotal").css("display", "none");
+
+			$("#weightPercentage").css("display", "");
+			$("#proportionPercentage").css("display", "none");
+			redrawSampleGraphs();
+			setSummaryTable();
+
+			$("#thirdHeader").html('<b>Weight</b>');
+			redrawEmpericalTable();
+		}
+
+		function switchOffspring(){
+			weightDisplayed = false;
+			$("#weightPercentageNarrowed").css("display", "none");
+			$("#weightPercentageTotal").css("display", "none");  // To hide
+			$("#proportionPercentageTotal").css("display", "");
+			$("#proportionPercentageNarrowed").css("display", "");  // To unhide
+
+			$("#weightPercentage").css("display", "none");
+			$("#proportionPercentage").css("display", "");
+			redrawSampleGraphs();
+			setSummaryTable();
+
+			$("#thirdHeader").html('<b>Cares For Offspring</b>');
+			redrawEmpericalTable();
+		}
+
+		function storeToTable() {
+
+			empericalWeightArray.push(roundForDisplay(meanWeight,2) + " lbs");
+			empericalProportionArray.push(roundForDisplay(meanProportion,2) + ' or ' + Math.round((round(meanProportion,2) * 100)) + "%");
+		  // roundForDisplay(meanProportion,2) + ' or ' + Math.round((round(meanProportion,2) * 100)) + "%"
+
+
+			var table = document.getElementById("myTable");
+    	var row = table.insertRow(rowLocation);
+    	var cell1 = row.insertCell(0);
+    	var cell2 = row.insertCell(1);
+			var cell3 = row.insertCell(2);
+			//var cell4 = row.insertCell(3);
+    	cell1.innerHTML = rowLocation;
+			cell2.innerHTML = mySampleSize;
+			if(weightDisplayed){
+				cell3.innerHTML = roundForDisplay(meanWeight,2) + " lbs";
+			}
+			else{
+				cell3.innerHTML = roundForDisplay(meanProportion,2) + ' or ' + Math.round((round(meanProportion,2) * 100)) + "%";
+			}
+
+			cell3.id = 'cell' + rowLocation;
+			//cell4.innerHTML = round(meanProportion,2);
+			rowLocation = rowLocation + 1;
+
+		}
+
+		function clearTable() {
+			var table = document.getElementById("myTable");
+			if(weightDisplayed){
+				table.innerHTML = "<tr><td><b>Repetition</b></td><td><b>Sample Size</b></td><td id= 'thirdHeader'><b>Weight</b></td></tr>";
+			}
+			else{
+				table.innerHTML = "<tr><td><b>Repetition</b></td><td><b>Sample Size</b></td><td id= 'thirdHeader'><b>Cares For Offspring</b></td></tr>";
+
+			}
+						rowLocation = 1;
+			var elemSize = document.getElementById("distributionSummarySize");
+
+			elemSize.innerHTML = "0 Repetitions";
+		}
+
+		function clearSampleGraphs(){
+
+			distributionWeightArray = [];
+			distributionProportionArray = [];
+			distributionPercentageWeightArray = [];
+			distributionPercentageProportionArray = [];
+
+			distributionWeightArrayNarrow = [];
+			distributionProportionArrayNarrow = [];
+			distributionPercentageWeightArrayNarrow = [];
+			distributionPercentageProportionArrayNarrow = [];
+
+			showAllGraphs();
+
+			createNewSamplingDistributionGraphs();
+
+			if(weightDisplayed){
+				switchWeight();
+			}
+			else{
+				switchOffspring();
+			}
+
+		}
+
+		function redrawFirstGraphs() {
+
+			var update1 = {
+				'xaxis.range': [arrayMin(xAxisWeightDistributionNarrow)-.5, arrayMax(xAxisWeightDistributionNarrow)+.5],   // updates the xaxis range
+			};
+			var update2 = {
+				'xaxis.range': [arrayMin(xAxisProportionDistributionNarrow)-.05, arrayMax(xAxisProportionDistributionNarrow) + .05],   // updates the xaxis range
+			};
+
+			var widthsForWColumns = Array(distributionPercentageWeightArray.length).fill(.8);
+			var widthsForPColumns = Array(distributionPercentageProportionArray.length).fill(.08);
+			var widthsForWNColumns = Array(distributionPercentageWeightArrayNarrow.length).fill(.08);
+			var widthsForPNColumns = Array(distributionPercentageProportionArrayNarrow.length).fill(.008);
+
+			if(weightDisplayed){
+				Plotly.relayout('weightPercentageNarrowed', update1);
+
+				Plotly.restyle('weightPercentageTotal', 'x', [xAxisWeightDistribution]);
+				Plotly.restyle('weightPercentageTotal', 'y', [distributionPercentageWeightArray]);
+
+				Plotly.restyle('weightPercentageNarrowed', 'x', [xAxisWeightDistributionNarrow]);
+				Plotly.restyle('weightPercentageNarrowed', 'y', [distributionPercentageWeightArrayNarrow]);
+
+				Plotly.restyle('weightPercentageTotal', 'width', [widthsForWColumns]);
+				Plotly.restyle('weightPercentageNarrowed', 'width', [widthsForWNColumns]);
+
+			}
+			else {
+				Plotly.relayout('proportionPercentageNarrowed', update2);
+				Plotly.restyle('proportionPercentageTotal', 'x', [xAxisProportionDistribution]);
+				Plotly.restyle('proportionPercentageTotal', 'y', [distributionPercentageProportionArray]);
+
+				Plotly.restyle('proportionPercentageNarrowed', 'x', [xAxisProportionDistributionNarrow]);
+				Plotly.restyle('proportionPercentageNarrowed', 'y', [distributionPercentageProportionArrayNarrow]);
+
+				Plotly.restyle('proportionPercentageTotal', 'width', [widthsForPColumns]);
+				Plotly.restyle('proportionPercentageNarrowed', 'width', [widthsForPNColumns]);
+
+			}
+
+					}
+
+		function redrawSampleGraphs() {
+
+
+			update = weightDisplayed ? {'xaxis.range': [arrayMin(xAxisWeightDistributionNarrow)-.5, arrayMax(xAxisWeightDistributionNarrow)+.5], 'yaxis.range[1]': maxYNWeight} : {'xaxis.range': [arrayMin(xAxisProportionDistributionNarrow)-.05, arrayMax(xAxisProportionDistributionNarrow) + .05],'yaxis.range[1]': maxYNProportion};
+			update2 = weightDisplayed ? {'yaxis.range[1]': maxYWeight} : {'yaxis.range[1]': maxYProportion};
+
+			var widthsForWColumns = Array(distributionPercentageWeightArray.length).fill(.8);
+			var widthsForPColumns = Array(distributionPercentageProportionArray.length).fill(.08);
+			var widthsForWNColumns = Array(distributionPercentageWeightArrayNarrow.length).fill(.08);
+			var widthsForPNColumns = Array(distributionPercentageProportionArrayNarrow.length).fill(.008);
+
+			if(weightDisplayed){
+
+				Plotly.restyle('weightPercentageTotal', 'x', [xAxisWeightDistribution]);
+				Plotly.restyle('weightPercentageTotal', 'y', [distributionPercentageWeightArray]);
+
+				Plotly.restyle('weightPercentageNarrowed', 'x', [xAxisWeightDistributionNarrow]);
+				Plotly.restyle('weightPercentageNarrowed', 'y', [distributionPercentageWeightArrayNarrow]);
+
+				Plotly.restyle('weightPercentageTotal', 'width', [widthsForWColumns]);
+				Plotly.restyle('weightPercentageNarrowed', 'width', [widthsForWNColumns]);
+
+				Plotly.relayout('weightPercentageTotal', update2)
+				Plotly.relayout('weightPercentageNarrowed', update);
+
+			}
+			else {
+
+				Plotly.restyle('proportionPercentageTotal', 'x', [xAxisProportionDistribution]);
+				Plotly.restyle('proportionPercentageTotal', 'y', [distributionPercentageProportionArray]);
+
+				Plotly.restyle('proportionPercentageNarrowed', 'x', [xAxisProportionDistributionNarrow]);
+				Plotly.restyle('proportionPercentageNarrowed', 'y', [distributionPercentageProportionArrayNarrow]);
+
+				Plotly.restyle('proportionPercentageTotal', 'width', [widthsForPColumns]);
+				Plotly.restyle('proportionPercentageNarrowed', 'width', [widthsForPNColumns]);
+
+				Plotly.relayout('proportionPercentageTotal', update2);
+				Plotly.relayout('proportionPercentageNarrowed', update);
+
+			}
+
+					}
+
+		function setSampleSize(newVal) {
+			mySampleSize = newVal;
+			setSummarySampleSize(mySampleSize);
+
+			clearData();
+			//drawASample();
+
+			// clear the bottom 4 graphs
+		}
+
+		function clearSampleGraph(){
+
+			showAllGraphs();
+
+			sampleWeightArray = [];
+			sampleProportionArray = [];
+			sampleStored = false;
+
+			samplePercentageWeightArray = [];
+			samplePercentageProportionArray = [];
+
+			createNewSampleGraphs();
+
+			if(weightDisplayed){
+				switchWeight();
+			}
+			else{
+				switchOffspring();
+			}
+
+		}
+
+		function clearSummaryTable() {
+
+			maxWeight = "empty";
+			minWeight = "empty";
+			standardDeviationWeight = "empty";
+			meanWeight = "empty";
+
+			maxProportion = "empty";
+			minProportion = "empty";
+			standardDeviationProportion = "empty";
+			meanProportion = "empty";
+
+			setSummaryTable();
+
+			var elemError = document.getElementById("sampleError");
+			elemError.innerHTML = "&nbsp;";
+		}
+
+		function clearData() {
+			clearTable();
+			clearSampleGraphs();
+			clearSummaryTable();
+			clearSampleGraph();
+
+		}
+
+
+	</script>
+
+	<link async rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Roboto+Slab:400,300,200,100&subset=latin,latin-ext">
+
+	<title>Sampling App</title>
+
+	<style>
+
+	#sampleGraphs {
+	    width: 100%;
+			margin: 10 75 50 75px;
+	    overflow: auto;
+	}
+	#weightPercentage {
+
+	    width: 100%;
+	}
+	#proportionPercentage {
+		  /*margin-left: 50%;*/
+			float: left;
+	    width: 100%;
+	}
+	#weightPercentageTotal {
+	    /*float: left;*/
+	    width: 100%;
+	}
+	#proportionPercentageTotal {
+		  /*margin-left: 50%;*/
+			float: left;
+	    width: 100%;
+	}
+
+	#weightPercentageNarrowed {
+	    /*float: left;*/
+	    width: 100%;
+	}
+	#proportionPercentageNarrowed {
+		  /*margin-left: 50%;*/
+			float: left;
+	    width: 100%;
+	}
+	#halfPageGraphs {
+	    width: 50%;
+			margin-left: 50%;
+	    overflow: auto;
+	}
+
+	#leftPageTable {
+		width: 50%;
+		float: left;
+		overflow: auto;
+	}
+
+	#rightPageSummary{
+		overflow: auto;
+	}
+
+	#leftThird {
+		width: 30%;
+		float: left;
+		display: block;
+	}
+	#rightThird {
+		width: 70%;
+		margin-left: 30%;
+		display: block;
+		margin-top: 0px;
+	}
+
+	.tooltip {
+    position: relative;
+    display: inline-block;
+    border-bottom: 1px dotted black;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 220px;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 10px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 0%;
+    margin-left: -80px;
+    opacity: 0;
+    transition: opacity 1s;
+}
+
+.tooltip .tooltiptext::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #555 transparent transparent transparent;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+	body {
+   background:#FFFFFF;
+   font: 1em Roboto Slab, serif;
+   color:#3B317D;
+   padding:0px;
+}
+
+h1{
+   margin-top:35px;
+   margin-bottom:5px;
+   padding:0;
+   font-size:2.5em;
+   text-align:center;
+   color:#FF6000;
+}
+
+h2{
+   margin-top:5px;
+   margin-bottom:40px;
+   padding:0;
+   font-size:1.5em;
+   font-weight:300;
+   text-align:center;
+}
+
+h3{
+   font-size:1.3em;
+   font-weight:100;
+   margin-top:25px;
+   margin-bottom:10px;
+}
+
+h4{
+   font-size:1em;
+   font-weight:bold;
+   margin-top:25px;
+   margin-bottom:10px;
+}
+
+	table, td {
+    border: 1px solid black;
+		text-align: center;
+}
+	td {
+		padding-left: 5px;
+		padding-right: 5px;
+	}
+
+.grey_box{
+   margin-top:30px;
+   background:#E8E8E8;
+   font-size:1.2em;
+	 margin-left: 7%;
+	 margin-right: 7%;
+	 padding:10px 50px;
+   }
+
+	 .button {
+	     background-color: #E8E8E8;
+	     border: none;
+			 font: 1em Roboto Slab, serif;
+		   color:#3B317D;
+			 border: 1px solid gray;
+	     padding: 10px 15px;
+	     text-align: center;
+	     text-decoration: none;
+	     display: inline-block;
+	     font-size: 16px;
+	 }
+
+}
+
+	</style>
+
+</head>
+
+
+<body>
+
+	<h1> Random Sampling </h1>
+
+	<div class="grey_box">
+		<center>
+			<br/>
+			<p>In this app, you will draw a random sample from the population of all <span class="tooltip">Galoots<span class="tooltiptext">Imagine Big Alien Chickens.</span></span> on <span class="tooltip">Planet Z<span class="tooltiptext">A far away planet ideal for practicing statistical methods.</span></span>.</p>
+
+<!--
+
+<span class="tooltip">Cares for Offspring<span class="tooltiptext">This variable has a value of 1 for any Galoot who cares for their offspring, otherwise the value is 0.</span></span>
+
+
+-->
+
+<form action="">
+<p> <b>Step 1:</b> Choose the variable you want to graph: 
+ <input type="radio" name="viewedGraph" value="weight" onclick=switchWeight() checked="checked"> <span class="tooltip"> Weight<span class="tooltiptext">To keep things simple, all weights are reported in pounds based on standard Earth gravity.</span></span>
+ <input type="radio" name="viewedGraph" value="offspring" onclick=switchOffspring()><span class="tooltip"> Cares for Offspring<span class="tooltiptext">This variable has a value of 1 for any Galoot who cares for their offspring, otherwise the value is 0.</span></span>
+</p>
+</form>
+
+<form action="">
+	<p> <b>Step 2:</b> Choose the sample size you want to use: 
+ <input type="radio" name="samplesDrawn" value="10" onclick=setSampleSize(10)> 10
+ <input type="radio" name="samplesDrawn" value="40" onclick=setSampleSize(40) checked="checked"> 40
+ <input type="radio" name="samplesDrawn" value="160" onclick=setSampleSize(160)> 160
+</p>
+</form>
+			<div id="leftThird">
+				<img src="Galoot.png" alt="Galoot" height="240" width="240" />
+				<p><i> A Galoot</i></p>
+			</div>
+			<div id="rightThird">
+				<p> <b>Step 3:</b> Click on "Draw a sample" to draw your first sample of Galoots. </p>
+				<p> <b>Step 4:</b> Click “Store result” to write the sample mean to the data table in the lower left. This also adds the sample mean to the empirical sampling distribution on the lower right, and draws a new random sample of the same size. </p>
+				<p> Note: Step 4 can be repeated as many times as you like. The more data you add to the empirical sampling distribution, the more it will accurately represent the theoretical sampling distribution for the sample mean.</p>
+				<p> Anytime you want to start over you can either click on "Clear all data" or change either the variable or sample size.</p>
+			</div>
+		</center>
+	</div>
+	 <div id="leftPageTable">
+		 <div id="proportionPercentage"></div>
+	 		<div id="weightPercentage"></div>
+	  </div>
+
+	 <br></br>
+
+	 <center>
+		 <div id="rightPageSummary">
+			 <br/> <br/>
+
+			 <input type="button" class="button" id="drawSample" value="Draw a sample">
+			 <p> Descriptive Statistics for the Current Sample</br>
+			 <span id="sampleSummarySize"> &nbsp;</span>
+		 </p>
+
+	 <table id="sampleSummary">
+		<tr>
+			<td><b></b></td>
+			<td><b><span id"variableSampled">Weight</span></b></td>
+		</tr>
+		<tr>
+			<td><b><span id="meanTitle">Mean</span></b></td>
+			<td><span id="tableMean">0 lbs</span></td>
+		</tr>
+		<tr>
+			<td><b>Standard Deviation</b></td>
+			<td id="tableSD">0 lbs</td>
+		</tr>
+		<tr>
+			<td><b>Minimum</b></td>
+			<td id="tableMin">0 lbs</td>
+		</tr>
+		<tr>
+			<td><b>Maximum</b></td>
+			<td id="tableMax">0 lbs</td>
+		</tr>
+	</table>
+
+	<div id="storeSample">
+		<div id="sampleError"> &nbsp;</div>
+		<input type="button" class="button" id="storeSample" value="Store result">
+
+	 </div>
+ </div>
+</center>
+
+	 <br/>
+
+	 <div id="sampleGraphs">
+
+		 <div id="leftPageTable">
+			 <br/> <br/> <br/>
+			 <center><p> Descriptive Statistics for the Emperical Sampling Distribution</br>
+				<i>Data from <span id="distributionSummarySize">0 Repetitions</span> of the Sampling Process</i></p>
+
+			 <table id="myTable">
+  		 	<tr>
+    			<td><b>Repetition</b></td>
+					<td><b>Sample Size</b></td>
+    			<td id="thirdHeader"><b>Weight</b></td>
+  			</tr>
+			</table></center>
+			<br/>
+
+
+			 <center><input type="button" id="clearSamples" value="Clear all data." onclick=clearData()></center>
+
+		 </div>
+	 	  <div id ="halfPageGraphs">
+						 <br/>
+		 		<div id="proportionPercentageTotal"></div>
+	 			<div id="weightPercentageTotal"></div>
+				<div id="proportionPercentageNarrowed"></div>
+				<div id="weightPercentageNarrowed"></div>
+			</div>
+
+		</div>
+
+
+</body>
+
+</html>
